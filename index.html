@@ -1,389 +1,265 @@
-
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Animal Voice Analyzer | FFT & Laplace</title>
+    <title>Animal Voice Analyzer</title>
 
-    <meta name="description" content="Analyze animal sounds using waveform visualization, FFT spectrum, spectrogram and Laplace-based filtering.">
+    <meta name="description"
+          content="Animal sound recognition and Signals & Systems analysis using FFT and Laplace filter concepts.">
 
     <link rel="stylesheet" href="style.css">
+
+    <!-- TensorFlow.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+
+    <!-- CSV parser for model labels, if needed -->
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 </head>
 
 <body>
 
-<header id="home">
+<header class="topbar">
     <div class="brand">
-        <h1>🐾 Animal Voice Analyzer</h1>
-        <p>FFT &nbsp; • &nbsp; Laplace &nbsp; • &nbsp; AI Prediction</p>
+        <span class="brand-icon">🐾</span>
+        <div>
+            <h1>Animal Voice Analyzer</h1>
+            <p>FFT · Laplace · AI Prediction</p>
+        </div>
     </div>
 
     <nav>
         <a href="#home">Home</a>
         <a href="#analysis">Analysis</a>
-        <a href="#library">Animal Library</a>
+        <a href="#prediction">Animal Prediction</a>
         <a href="#about">About</a>
     </nav>
 </header>
 
-<main>
+<main class="dashboard" id="home">
 
-    <!-- LEFT SIDEBAR -->
-    <aside class="left">
+    <!-- LEFT PANEL -->
+    <aside class="sidebar">
 
         <section class="panel">
-            <h3>1. Upload / Record</h3>
+            <h2>1. Upload / Record</h2>
 
-            <label class="upload">
+            <label class="upload-box" for="audioUpload">
                 <span>☁️</span>
-                <p>Choose an audio file</p>
-                <small>WAV, MP3, OGG and supported audio formats</small>
-                <input type="file" id="audioFile" accept="audio/*">
+                <strong>Choose an audio file</strong>
+                <small>WAV, MP3, OGG, etc.</small>
             </label>
 
-            <button id="recordBtn">🎙 Record from Microphone</button>
-            <button id="stopBtn" disabled>■ Stop Recording</button>
+            <input
+                type="file"
+                id="audioUpload"
+                accept="audio/*"
+            >
 
-            <p class="status" id="status" role="status" aria-live="polite">
-                Upload an audio file to begin.
+            <p id="fileName">No audio selected</p>
+
+            <audio id="audioPlayer" controls></audio>
+
+            <div class="button-row">
+                <button id="recordButton" type="button">
+                    🎙 Record
+                </button>
+
+                <button id="stopRecordButton"
+                        type="button"
+                        disabled>
+                    Stop
+                </button>
+            </div>
+
+            <p id="recordStatus" aria-live="polite">
+                Ready to analyze
             </p>
         </section>
 
         <section class="panel">
-            <h3>2. Analysis Settings</h3>
+            <h2>2. Analysis Settings</h2>
 
-            <label for="fftSize">FFT Window Size</label>
-            <select id="fftSize">
-                <option value="0.25">0.25 seconds</option>
-                <option value="0.5" selected>0.5 seconds</option>
-                <option value="1">1 second</option>
-                <option value="2">2 seconds</option>
+            <label for="fftWindowSize">FFT Window Size</label>
+            <select id="fftWindowSize">
+                <option value="1024">1024 samples</option>
+                <option value="2048" selected>2048 samples</option>
+                <option value="4096">4096 samples</option>
+                <option value="8192">8192 samples</option>
             </select>
 
             <label for="filterType">Filter Type (Laplace)</label>
             <select id="filterType">
-                <option value="lowpass">Low Pass Filter</option>
-                <option value="highpass">High Pass Filter</option>
-                <option value="bandpass">Band Pass Filter</option>
+                <option value="lowpass">Low-Pass Filter</option>
+                <option value="highpass">High-Pass Filter</option>
             </select>
 
-            <label for="cutoff">
+            <label for="cutoffSlider">
                 Cutoff Frequency:
                 <span id="cutoffValue">2000 Hz</span>
             </label>
 
             <input
                 type="range"
-                id="cutoff"
+                id="cutoffSlider"
                 min="100"
                 max="8000"
-                step="50"
+                step="100"
                 value="2000"
             >
 
-            <div class="range-labels">
-                <span>100 Hz</span>
-                <span>8000 Hz</span>
-            </div>
-
-            <button id="analyzeBtn">▶ Analyze Sound</button>
-            <button id="playOriginal">▶ Play Original</button>
-            <button id="playFiltered">▶ Play Filtered</button>
+            <button id="analyzeButton" type="button">
+                ▶ Analyze Sound
+            </button>
         </section>
 
-        <section class="panel" id="library">
-            <h3>Animal Library</h3>
-
-            <div class="samples">
-                <button type="button" data-animal="Cat">🐱<br>Cat</button>
-                <button type="button" data-animal="Dog">🐶<br>Dog</button>
-                <button type="button" data-animal="Bird">🐦<br>Bird</button>
-                <button type="button" data-animal="Cow">🐄<br>Cow</button>
-                <button type="button" data-animal="Frog">🐸<br>Frog</button>
-                <button type="button" data-animal="Horse">🐴<br>Horse</button>
-            </div>
-
-            <p class="status">
-                Select an animal for reference. This does not generate an AI prediction.
-            </p>
+        <section class="panel">
+            <h2>Quick Samples</h2>
+            <p>Upload recordings of different animals to compare predictions.</p>
         </section>
 
     </aside>
 
-    <!-- MAIN ANALYSIS AREA -->
-    <section id="analysis">
+    <!-- MAIN ANALYSIS -->
+    <section class="main-content" id="analysis">
 
-        <div class="summary">
+        <section class="panel model-status">
+            <h2>AI Model Status</h2>
+            <p id="modelStatus" aria-live="polite">
+                TensorFlow.js loaded. A compatible YAMNet model must be configured.
+            </p>
+            <p id="modelDetails">
+                Model predictions will appear here when the model is ready.
+            </p>
+        </section>
 
-            <section class="panel audio-info">
-                <h3 id="fileName">♫ No Audio Loaded</h3>
-                <p id="fileMeta">Duration: — | Sample Rate: —</p>
-            </section>
+        <section class="panel prediction-panel" id="prediction">
+            <h2>🐾 Animal Prediction</h2>
 
-            <section class="panel prediction">
-                <h3>Animal Prediction</h3>
-
-                <h2 id="animalName">Model Not Connected</h2>
-
-                <p id="predictionNote">
-                    Connect a trained animal classification model for predictions.
-                </p>
-
-                <p id="confidence">Confidence: —</p>
-            </section>
-
-        </div>
-
-        <!-- ANALYSIS TABS -->
-        <div class="tabs">
-            <button type="button" class="active" data-target="waveCard">
-                1. Time Domain
-            </button>
-
-            <button type="button" data-target="fftCard">
-                2. FFT Spectrum
-            </button>
-
-            <button type="button" data-target="spectrogramCard">
-                3. Spectrogram
-            </button>
-
-            <button type="button" data-target="laplaceCard">
-                4. Laplace Filter
-            </button>
-        </div>
-
-        <!-- GRAPHS -->
-        <div class="charts">
-
-            <article class="card" id="waveCard">
-                <h3>Time Domain — Waveform</h3>
-
-                <canvas
-                    id="wave"
-                    role="img"
-                    aria-label="Audio waveform showing amplitude over time"
-                ></canvas>
-
-                <div class="features">
-                    <h4>Signal Features</h4>
-
-                    <p>Duration: <strong id="duration">—</strong></p>
-                    <p>RMS Amplitude: <strong id="rms">—</strong></p>
-                    <p>Zero Crossing Rate: <strong id="zcr">—</strong></p>
-                    <p>Peak Amplitude: <strong id="peak">—</strong></p>
-                </div>
-            </article>
-
-            <article class="card" id="fftCard">
-                <h3>FFT Spectrum — Magnitude</h3>
-
-                <canvas
-                    id="fft"
-                    role="img"
-                    aria-label="FFT magnitude spectrum"
-                ></canvas>
-
-                <div class="features">
-                    <p>
-                        Dominant Frequency:
-                        <strong id="dominant">—</strong>
-                    </p>
-                </div>
-            </article>
-
-            <article class="card" id="spectrogramCard">
-                <h3>Spectrogram</h3>
-
-                <canvas
-                    id="spectrogram"
-                    role="img"
-                    aria-label="Spectrogram showing audio signal intensity"
-                ></canvas>
-
-                <p class="status">
-                    Color intensity represents signal amplitude.
-                </p>
-            </article>
-
-            <article class="card" id="laplaceCard">
-                <h3>Laplace Filter — Frequency Response</h3>
-
-                <canvas
-                    id="response"
-                    role="img"
-                    aria-label="Filter frequency response graph"
-                ></canvas>
-
-                <div class="formula">
-                    H(s) = 1 / (1 + sRC)
-                    <small>First-order RC low-pass transfer function</small>
+            <div class="prediction-result">
+                <div>
+                    <small>Predicted Animal / Sound</small>
+                    <h3 id="animalResult">Waiting for audio</h3>
                 </div>
 
-                <p class="status" id="fcText">
-                    Cutoff Frequency: 2000 Hz
-                </p>
-            </article>
-
-            <article class="card wide" id="filterComparison">
-                <h3>Effect of Laplace-Based Filtering</h3>
-
-                <div class="charts">
-
-                    <div>
-                        <h4>Original Signal</h4>
-
-                        <canvas
-                            id="originalCompare"
-                            role="img"
-                            aria-label="Original audio waveform"
-                        ></canvas>
-                    </div>
-
-                    <div>
-                        <h4>Filtered Signal</h4>
-
-                        <canvas
-                            id="filteredCompare"
-                            role="img"
-                            aria-label="Filtered audio waveform"
-                        ></canvas>
-                    </div>
-
+                <div>
+                    <small>Confidence</small>
+                    <h3 id="confidenceResult">--</h3>
                 </div>
-            </article>
+            </div>
 
-            <article class="card wide">
-                <h3>Understanding the Analysis</h3>
+            <p id="predictionWarning" aria-live="polite">
+                Upload a recording and analyze it.
+            </p>
 
-                <div class="charts">
-
-                    <div class="concept">
-                        <h4>FFT — Fast Fourier Transform</h4>
-
-                        <p>
-                            Converts a discrete audio signal from the time
-                            domain into the frequency domain.
-                        </p>
-
-                        <ul>
-                            <li>Identifies frequency components.</li>
-                            <li>Helps locate dominant frequencies.</li>
-                            <li>Shows the distribution of signal energy.</li>
-                        </ul>
-                    </div>
-
-                    <div class="concept">
-                        <h4>Laplace Transform</h4>
-
-                        <p>
-                            Represents a system in the complex frequency
-                            domain and helps analyze its behavior.
-                        </p>
-
-                        <ul>
-                            <li>Describes a filter using a transfer function.</li>
-                            <li>Explains frequency attenuation.</li>
-                            <li>Connects circuit theory with signal processing.</li>
-                        </ul>
-                    </div>
-
-                </div>
-            </article>
-
-        </div>
-
-    </section>
-
-    <!-- RIGHT SIDEBAR -->
-    <aside class="right">
+            <h3>Top Predictions</h3>
+            <div id="probabilityBars"></div>
+        </section>
 
         <section class="panel">
-            <h3>How to Read This</h3>
+            <h2>1. Time Domain — Waveform</h2>
+            <canvas id="waveformCanvas" height="260"></canvas>
 
-            <div class="guide">
-                <strong>1. Time Domain</strong>
-                <p>
-                    Shows how the amplitude of the sound changes over time.
-                </p>
-            </div>
+            <div class="feature-grid">
+                <div>
+                    <small>Duration</small>
+                    <strong id="durationResult">--</strong>
+                </div>
 
-            <div class="guide">
-                <strong>2. FFT Spectrum</strong>
-                <p>
-                    Shows the frequency components present in the audio.
-                </p>
-            </div>
+                <div>
+                    <small>RMS Amplitude</small>
+                    <strong id="rmsResult">--</strong>
+                </div>
 
-            <div class="guide">
-                <strong>3. Spectrogram</strong>
-                <p>
-                    Visualizes changes in signal intensity over time.
-                </p>
-            </div>
+                <div>
+                    <small>Peak Amplitude</small>
+                    <strong id="peakResult">--</strong>
+                </div>
 
-            <div class="guide">
-                <strong>4. Laplace Filter</strong>
-                <p>
-                    Displays a theoretical filter frequency response.
-                </p>
+                <div>
+                    <small>Zero Crossing Rate</small>
+                    <strong id="zcrResult">--</strong>
+                </div>
             </div>
+        </section>
 
-            <div class="guide">
-                <strong>5. Filtered Signal</strong>
-                <p>
-                    Compares the original signal with the digitally filtered audio.
-                </p>
-            </div>
+        <section class="panel">
+            <h2>2. FFT Spectrum — Magnitude</h2>
+            <canvas id="fftCanvas" height="260"></canvas>
+
+            <p>
+                Dominant Frequency:
+                <strong id="frequencyResult">--</strong> Hz
+            </p>
+        </section>
+
+        <section class="panel">
+            <h2>3. Spectrogram — STFT</h2>
+            <canvas id="spectrogramCanvas" height="260"></canvas>
+            <p>Shows how the signal's frequency content changes over time.</p>
+        </section>
+
+        <section class="panel">
+            <h2>4. Laplace Filter — Frequency Response</h2>
+
+            <p>
+                Low-pass transfer function:
+                H(s) = 1 / (1 + sRC)
+            </p>
+
+            <p>
+                Cutoff frequency:
+                fc = 1 / (2πRC)
+            </p>
+
+            <p>
+                Filter type:
+                <strong id="filterTypeResult">lowpass</strong>
+            </p>
+
+            <p>
+                Cutoff:
+                <strong id="cutoffResult">2000 Hz</strong>
+            </p>
+
+            <canvas id="laplaceCanvas" height="260"></canvas>
+        </section>
+
+        <section class="panel">
+            <h2>5. Original vs Filtered Signal</h2>
+
+            <h3>Original Signal</h3>
+            <canvas id="originalSignalCanvas" height="180"></canvas>
+
+            <h3>Filtered Signal</h3>
+            <canvas id="filteredSignalCanvas" height="180"></canvas>
         </section>
 
         <section class="panel" id="about">
-            <h3>Key Formulas</h3>
+            <h2>How This Project Works</h2>
 
-            <div class="formula">
-                H(s) = 1 / (1 + sRC)
-                <small>Transfer Function</small>
-            </div>
-
-            <div class="formula">
-                fc = 1 / (2πRC)
-                <small>Cutoff Frequency</small>
-            </div>
-
-            <div class="formula">
-                X[k] = Σ x[n]e<sup>−j2πkn/N</sup>
-                <small>DFT — Frequency Analysis</small>
-            </div>
-
-            <div class="formula">
-                RMS = √(Σx²/N)
-                <small>Root Mean Square Amplitude</small>
-            </div>
+            <ul>
+                <li><strong>Waveform:</strong> displays amplitude against time.</li>
+                <li><strong>FFT:</strong> identifies frequency components.</li>
+                <li><strong>STFT:</strong> tracks frequency changes over time.</li>
+                <li><strong>Laplace:</strong> describes a filter using its transfer function.</li>
+                <li><strong>AI:</strong> classifies audio using a pretrained model when configured.</li>
+            </ul>
         </section>
 
-        <section class="panel">
-            <h3>Project Overview</h3>
-
-            <p>
-                This project combines audio signal processing and
-                system analysis to demonstrate waveform visualization,
-                frequency analysis and digital filtering.
-            </p>
-        </section>
-
-    </aside>
+    </section>
 
 </main>
 
 <footer>
-    <p>Animal Voice Analyzer | FFT • Laplace • Digital Signal Processing</p>
+    <p>Animal Voice Analyzer · Signals & Systems Project</p>
 </footer>
 
-<!-- JavaScript file -->
+<!-- Load your JavaScript last -->
 <script src="script.js"></script>
 
 </body>
 </html>
-
+```

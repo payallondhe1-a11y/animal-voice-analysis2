@@ -1,265 +1,715 @@
-```html
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Animal Voice Analyzer</title>
+    <title>AnimalSound | Animal Sound Recognition</title>
 
-    <meta name="description"
-          content="Animal sound recognition and Signals & Systems analysis using FFT and Laplace filter concepts.">
+    <style>
+        /* ---------- GLOBAL STYLES ---------- */
 
-    <link rel="stylesheet" href="style.css">
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-    <!-- TensorFlow.js -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            background: #f4f6fb;
+            color: #20243a;
+            line-height: 1.6;
+        }
 
-    <!-- CSV parser for model labels, if needed -->
-    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+        .container {
+            width: 92%;
+            max-width: 1100px;
+            margin: auto;
+        }
+
+        /* ---------- HEADER ---------- */
+
+        header {
+            background: #ffffff;
+            border-bottom: 1px solid #e5e7ef;
+            padding: 18px 0;
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo {
+            color: #5b50e8;
+            font-size: 25px;
+            font-weight: bold;
+        }
+
+        .logo span {
+            color: #20243a;
+        }
+
+        .header-tag {
+            color: #626a7c;
+            font-size: 13px;
+        }
+
+        /* ---------- HERO SECTION ---------- */
+
+        .hero {
+            text-align: center;
+            padding: 55px 15px 35px;
+        }
+
+        .hero h1 {
+            font-size: clamp(30px, 5vw, 44px);
+            line-height: 1.2;
+            margin-bottom: 15px;
+        }
+
+        .hero h1 span {
+            color: #5b50e8;
+        }
+
+        .hero p {
+            max-width: 700px;
+            margin: 0 auto;
+            color: #687086;
+            font-size: 16px;
+        }
+
+        .hero-label {
+            display: inline-block;
+            background: #e9e7ff;
+            color: #5145d5;
+            padding: 6px 13px;
+            border-radius: 30px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 18px;
+        }
+
+        /* ---------- MAIN LAYOUT ---------- */
+
+        main {
+            padding-bottom: 45px;
+        }
+
+        .card {
+            background: #ffffff;
+            border: 1px solid #e7e9f1;
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 24px;
+            box-shadow: 0 5px 20px rgba(25, 35, 75, 0.04);
+        }
+
+        .card h2 {
+            font-size: 21px;
+            margin-bottom: 8px;
+        }
+
+        .card-description {
+            color: #72798a;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        /* ---------- UPLOAD AREA ---------- */
+
+        .upload-area {
+            border: 2px dashed #c7c4fa;
+            background: #fafaff;
+            border-radius: 14px;
+            padding: 35px 15px;
+            text-align: center;
+        }
+
+        .upload-icon {
+            font-size: 42px;
+            margin-bottom: 8px;
+        }
+
+        .upload-area h3 {
+            font-size: 18px;
+            margin-bottom: 8px;
+        }
+
+        .upload-area p {
+            color: #737b8d;
+            font-size: 14px;
+            margin-bottom: 17px;
+        }
+
+        .upload-button {
+            display: inline-block;
+            background: #5b50e8;
+            color: #ffffff;
+            border: none;
+            padding: 12px 23px;
+            border-radius: 9px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .upload-button:hover {
+            background: #473bd0;
+        }
+
+        #audioUpload {
+            display: none;
+        }
+
+        #fileName {
+            margin-top: 15px;
+            color: #5145d5;
+            font-size: 14px;
+            overflow-wrap: anywhere;
+        }
+
+        .format-note {
+            color: #8a90a0;
+            font-size: 12px;
+            margin-top: 13px;
+        }
+
+        /* ---------- AUDIO PLAYER ---------- */
+
+        #audioSection {
+            margin-top: 22px;
+        }
+
+        audio {
+            display: block;
+            width: 100%;
+            margin-top: 12px;
+        }
+
+        /* ---------- STATUS ---------- */
+
+        #analysisStatus {
+            margin-top: 15px;
+            color: #667085;
+            font-size: 14px;
+            overflow-wrap: anywhere;
+        }
+
+        /* ---------- RESULT SUMMARY ---------- */
+
+        .result-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 15px;
+            margin-top: 22px;
+        }
+
+        .result-box {
+            background: #f8f8ff;
+            border: 1px solid #e9e8ff;
+            border-radius: 12px;
+            padding: 18px;
+            min-width: 0;
+        }
+
+        .result-box .label {
+            color: #737b8d;
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+
+        .result-box .value {
+            color: #5145d5;
+            font-size: clamp(17px, 2.4vw, 24px);
+            font-weight: bold;
+            overflow-wrap: anywhere;
+        }
+
+        /* ---------- CHARTS ---------- */
+
+        .chart-card {
+            margin-top: 22px;
+        }
+
+        .chart-card h3 {
+            font-size: 17px;
+            margin-bottom: 5px;
+        }
+
+        .chart-card p {
+            color: #737b8d;
+            font-size: 13px;
+            margin-bottom: 12px;
+        }
+
+        .chart-wrapper {
+            width: 100%;
+            overflow: hidden;
+            background: #fafbfe;
+            border: 1px solid #eceef5;
+            border-radius: 10px;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 300px;
+        }
+
+        /* ---------- PROBABILITY BARS ---------- */
+
+        #probabilityBars {
+            margin-top: 20px;
+        }
+
+        .probability-item {
+            margin-bottom: 17px;
+        }
+
+        .probability-info {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 7px;
+            font-size: 14px;
+        }
+
+        .probability-info span:first-child {
+            font-weight: bold;
+        }
+
+        .probability-info span:last-child {
+            color: #667085;
+        }
+
+        .probability-background {
+            width: 100%;
+            height: 9px;
+            background: #ececf5;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        .probability-fill {
+            height: 100%;
+            width: 0;
+            background: #6c63ff;
+            border-radius: 20px;
+            transition: width 0.5s ease;
+        }
+
+        .model-labels {
+            margin-top: 20px;
+            padding: 13px;
+            background: #f7f7fc;
+            border-radius: 8px;
+            color: #626a7c;
+            font-size: 13px;
+            overflow-wrap: anywhere;
+        }
+
+        /* ---------- INFORMATION SECTION ---------- */
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 18px;
+        }
+
+        .info-item {
+            background: #ffffff;
+            border: 1px solid #e7e9f1;
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .info-item .icon {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+
+        .info-item h3 {
+            font-size: 16px;
+            margin-bottom: 7px;
+        }
+
+        .info-item p {
+            color: #72798a;
+            font-size: 13px;
+        }
+
+        .method-note {
+            margin-top: 22px;
+            padding: 15px;
+            background: #fff9e9;
+            border: 1px solid #f3e6bb;
+            border-radius: 10px;
+            color: #6c5a2a;
+            font-size: 13px;
+        }
+
+        /* ---------- FOOTER ---------- */
+
+        footer {
+            text-align: center;
+            background: #ffffff;
+            border-top: 1px solid #e5e7ef;
+            padding: 25px 15px;
+            color: #777e8f;
+            font-size: 13px;
+        }
+
+        footer strong {
+            color: #5145d5;
+        }
+
+        /* ---------- UTILITY ---------- */
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* ---------- RESPONSIVE DESIGN ---------- */
+
+        @media (max-width: 700px) {
+            .header-content {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .hero {
+                padding-top: 38px;
+            }
+
+            .card {
+                padding: 18px;
+            }
+
+            .result-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+
+            canvas {
+                height: 240px;
+            }
+        }
+    </style>
 </head>
 
 <body>
 
-<header class="topbar">
-    <div class="brand">
-        <span class="brand-icon">🐾</span>
-        <div>
-            <h1>Animal Voice Analyzer</h1>
-            <p>FFT · Laplace · AI Prediction</p>
+    <!-- HEADER -->
+
+    <header>
+        <div class="container header-content">
+            <div class="logo">
+                🐾 Animal<span>Sound</span>
+            </div>
+
+            <div class="header-tag">
+                Digital Signal Processing Project
+            </div>
         </div>
-    </div>
+    </header>
 
-    <nav>
-        <a href="#home">Home</a>
-        <a href="#analysis">Analysis</a>
-        <a href="#prediction">Animal Prediction</a>
-        <a href="#about">About</a>
-    </nav>
-</header>
+    <!-- HERO -->
 
-<main class="dashboard" id="home">
+    <section class="hero">
+        <span class="hero-label">
+            FFT + AUDIO CLASSIFICATION
+        </span>
 
-    <!-- LEFT PANEL -->
-    <aside class="sidebar">
+        <h1>
+            Discover the Sound of <span>Animals</span>
+        </h1>
 
-        <section class="panel">
-            <h2>1. Upload / Record</h2>
-
-            <label class="upload-box" for="audioUpload">
-                <span>☁️</span>
-                <strong>Choose an audio file</strong>
-                <small>WAV, MP3, OGG, etc.</small>
-            </label>
-
-            <input
-                type="file"
-                id="audioUpload"
-                accept="audio/*"
-            >
-
-            <p id="fileName">No audio selected</p>
-
-            <audio id="audioPlayer" controls></audio>
-
-            <div class="button-row">
-                <button id="recordButton" type="button">
-                    🎙 Record
-                </button>
-
-                <button id="stopRecordButton"
-                        type="button"
-                        disabled>
-                    Stop
-                </button>
-            </div>
-
-            <p id="recordStatus" aria-live="polite">
-                Ready to analyze
-            </p>
-        </section>
-
-        <section class="panel">
-            <h2>2. Analysis Settings</h2>
-
-            <label for="fftWindowSize">FFT Window Size</label>
-            <select id="fftWindowSize">
-                <option value="1024">1024 samples</option>
-                <option value="2048" selected>2048 samples</option>
-                <option value="4096">4096 samples</option>
-                <option value="8192">8192 samples</option>
-            </select>
-
-            <label for="filterType">Filter Type (Laplace)</label>
-            <select id="filterType">
-                <option value="lowpass">Low-Pass Filter</option>
-                <option value="highpass">High-Pass Filter</option>
-            </select>
-
-            <label for="cutoffSlider">
-                Cutoff Frequency:
-                <span id="cutoffValue">2000 Hz</span>
-            </label>
-
-            <input
-                type="range"
-                id="cutoffSlider"
-                min="100"
-                max="8000"
-                step="100"
-                value="2000"
-            >
-
-            <button id="analyzeButton" type="button">
-                ▶ Analyze Sound
-            </button>
-        </section>
-
-        <section class="panel">
-            <h2>Quick Samples</h2>
-            <p>Upload recordings of different animals to compare predictions.</p>
-        </section>
-
-    </aside>
-
-    <!-- MAIN ANALYSIS -->
-    <section class="main-content" id="analysis">
-
-        <section class="panel model-status">
-            <h2>AI Model Status</h2>
-            <p id="modelStatus" aria-live="polite">
-                TensorFlow.js loaded. A compatible YAMNet model must be configured.
-            </p>
-            <p id="modelDetails">
-                Model predictions will appear here when the model is ready.
-            </p>
-        </section>
-
-        <section class="panel prediction-panel" id="prediction">
-            <h2>🐾 Animal Prediction</h2>
-
-            <div class="prediction-result">
-                <div>
-                    <small>Predicted Animal / Sound</small>
-                    <h3 id="animalResult">Waiting for audio</h3>
-                </div>
-
-                <div>
-                    <small>Confidence</small>
-                    <h3 id="confidenceResult">--</h3>
-                </div>
-            </div>
-
-            <p id="predictionWarning" aria-live="polite">
-                Upload a recording and analyze it.
-            </p>
-
-            <h3>Top Predictions</h3>
-            <div id="probabilityBars"></div>
-        </section>
-
-        <section class="panel">
-            <h2>1. Time Domain — Waveform</h2>
-            <canvas id="waveformCanvas" height="260"></canvas>
-
-            <div class="feature-grid">
-                <div>
-                    <small>Duration</small>
-                    <strong id="durationResult">--</strong>
-                </div>
-
-                <div>
-                    <small>RMS Amplitude</small>
-                    <strong id="rmsResult">--</strong>
-                </div>
-
-                <div>
-                    <small>Peak Amplitude</small>
-                    <strong id="peakResult">--</strong>
-                </div>
-
-                <div>
-                    <small>Zero Crossing Rate</small>
-                    <strong id="zcrResult">--</strong>
-                </div>
-            </div>
-        </section>
-
-        <section class="panel">
-            <h2>2. FFT Spectrum — Magnitude</h2>
-            <canvas id="fftCanvas" height="260"></canvas>
-
-            <p>
-                Dominant Frequency:
-                <strong id="frequencyResult">--</strong> Hz
-            </p>
-        </section>
-
-        <section class="panel">
-            <h2>3. Spectrogram — STFT</h2>
-            <canvas id="spectrogramCanvas" height="260"></canvas>
-            <p>Shows how the signal's frequency content changes over time.</p>
-        </section>
-
-        <section class="panel">
-            <h2>4. Laplace Filter — Frequency Response</h2>
-
-            <p>
-                Low-pass transfer function:
-                H(s) = 1 / (1 + sRC)
-            </p>
-
-            <p>
-                Cutoff frequency:
-                fc = 1 / (2πRC)
-            </p>
-
-            <p>
-                Filter type:
-                <strong id="filterTypeResult">lowpass</strong>
-            </p>
-
-            <p>
-                Cutoff:
-                <strong id="cutoffResult">2000 Hz</strong>
-            </p>
-
-            <canvas id="laplaceCanvas" height="260"></canvas>
-        </section>
-
-        <section class="panel">
-            <h2>5. Original vs Filtered Signal</h2>
-
-            <h3>Original Signal</h3>
-            <canvas id="originalSignalCanvas" height="180"></canvas>
-
-            <h3>Filtered Signal</h3>
-            <canvas id="filteredSignalCanvas" height="180"></canvas>
-        </section>
-
-        <section class="panel" id="about">
-            <h2>How This Project Works</h2>
-
-            <ul>
-                <li><strong>Waveform:</strong> displays amplitude against time.</li>
-                <li><strong>FFT:</strong> identifies frequency components.</li>
-                <li><strong>STFT:</strong> tracks frequency changes over time.</li>
-                <li><strong>Laplace:</strong> describes a filter using its transfer function.</li>
-                <li><strong>AI:</strong> classifies audio using a pretrained model when configured.</li>
-            </ul>
-        </section>
-
+        <p>
+            Upload an animal sound recording and explore its
+            waveform, frequency spectrum, dominant frequency,
+            and predicted sound category.
+        </p>
     </section>
 
-</main>
+    <!-- MAIN CONTENT -->
 
-<footer>
-    <p>Animal Voice Analyzer · Signals & Systems Project</p>
-</footer>
+    <main class="container">
 
-<!-- Load your JavaScript last -->
-<script src="script.js"></script>
+        <!-- AUDIO UPLOAD -->
+
+        <section class="card">
+            <h2>🎧 Upload an Audio File</h2>
+
+            <p class="card-description">
+                Select an audio recording to begin the analysis.
+            </p>
+
+            <div class="upload-area">
+
+                <div class="upload-icon">🎵</div>
+
+                <h3>Choose your sound recording</h3>
+
+                <p>
+                    Upload a clear recording of an animal sound.
+                </p>
+
+                <label
+                    for="audioUpload"
+                    class="upload-button"
+                >
+                    Choose Audio File
+                </label>
+
+                <input
+                    type="file"
+                    id="audioUpload"
+                    accept="audio/*,.wav,.mp3,.ogg,.m4a"
+                />
+
+                <p id="fileName">
+                    No audio file selected
+                </p>
+
+                <p class="format-note">
+                    WAV and MP3 are recommended. Supported formats
+                    depend on your browser.
+                </p>
+
+            </div>
+
+            <!-- AUDIO PLAYER -->
+
+            <div id="audioSection" class="hidden">
+                <h3>Audio Preview</h3>
+
+                <audio
+                    id="audioPlayer"
+                    controls
+                    preload="metadata"
+                >
+                    Your browser does not support audio playback.
+                </audio>
+            </div>
+
+            <!-- STATUS MESSAGE -->
+
+            <p
+                id="analysisStatus"
+                role="status"
+                aria-live="polite"
+            >
+                Upload an audio file to start the analysis.
+            </p>
+        </section>
+
+        <!-- RESULTS -->
+
+        <section id="resultsSection" class="card hidden">
+
+            <h2>📊 Analysis Results</h2>
+
+            <p class="card-description">
+                Results generated from the uploaded recording.
+            </p>
+
+            <!-- SUMMARY BOXES -->
+
+            <div class="result-grid">
+
+                <div class="result-box">
+                    <div class="label">
+                        Predicted Animal
+                    </div>
+
+                    <div
+                        class="value"
+                        id="animalResult"
+                    >
+                        —
+                    </div>
+                </div>
+
+                <div class="result-box">
+                    <div class="label">
+                        Dominant Frequency
+                    </div>
+
+                    <div class="value">
+                        <span id="frequencyResult">—</span>
+                        <span style="font-size: 14px;">Hz</span>
+                    </div>
+                </div>
+
+                <div class="result-box">
+                    <div class="label">
+                        Model Score
+                    </div>
+
+                    <div
+                        class="value"
+                        id="confidenceResult"
+                    >
+                        —
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- WAVEFORM -->
+
+            <div class="chart-card">
+                <h3>1. Time-Domain Waveform</h3>
+
+                <p>
+                    The waveform shows how the audio signal's
+                    amplitude changes with time.
+                </p>
+
+                <div class="chart-wrapper">
+                    <canvas
+                        id="waveformCanvas"
+                        aria-label="Audio waveform chart"
+                        role="img"
+                    >
+                        Your browser does not support canvas.
+                    </canvas>
+                </div>
+            </div>
+
+            <!-- FFT SPECTRUM -->
+
+            <div class="chart-card">
+                <h3>2. Frequency-Domain Spectrum (FFT)</h3>
+
+                <p>
+                    The FFT represents the signal in terms of
+                    its frequency components.
+                </p>
+
+                <div class="chart-wrapper">
+                    <canvas
+                        id="fftCanvas"
+                        aria-label="FFT frequency spectrum chart"
+                        role="img"
+                    >
+                        Your browser does not support canvas.
+                    </canvas>
+                </div>
+            </div>
+
+            <!-- MODEL SCORES -->
+
+            <div class="chart-card">
+                <h3>3. Animal Category Scores</h3>
+
+                <p>
+                    These bars show normalized scores for the
+                    supported animal groups. They are not
+                    independently measured accuracy rates.
+                </p>
+
+                <div id="probabilityBars"></div>
+            </div>
+
+            <!-- MODEL LABELS ARE ADDED BY JAVASCRIPT -->
+
+        </section>
+
+        <!-- HOW IT WORKS -->
+
+        <section class="card">
+            <h2>💡 How Does It Work?</h2>
+
+            <p class="card-description">
+                This project combines digital signal processing
+                with a pretrained audio-classification model.
+            </p>
+
+            <div class="info-grid">
+
+                <div class="info-item">
+                    <div class="icon">🎙️</div>
+
+                    <h3>Step 1: Audio Input</h3>
+
+                    <p>
+                        The browser reads the selected audio file
+                        and converts it into numerical samples.
+                    </p>
+                </div>
+
+                <div class="info-item">
+                    <div class="icon">〰️</div>
+
+                    <h3>Step 2: Signal Analysis</h3>
+
+                    <p>
+                        The waveform displays amplitude over time.
+                        FFT helps show the frequency components
+                        present in the signal.
+                    </p>
+                </div>
+
+                <div class="info-item">
+                    <div class="icon">🤖</div>
+
+                    <h3>Step 3: Classification</h3>
+
+                    <p>
+                        The pretrained YAMNet model analyzes audio
+                        and returns scores for sound categories.
+                        Relevant labels are grouped into animal
+                        categories by the application.
+                    </p>
+                </div>
+
+            </div>
+
+            <div class="method-note">
+                <strong>Important:</strong>
+                A dominant frequency alone cannot identify an
+                animal. The classification is an estimate from
+                a pretrained model, and some sounds may be
+                misclassified or returned as unknown. The model
+                score is not a guarantee of prediction accuracy.
+            </div>
+        </section>
+
+    </main>
+
+    <!-- FOOTER -->
+
+    <footer>
+        <p>
+            <strong>AnimalSound</strong> — Animal Sound
+            Recognition using FFT and Audio Classification
+        </p>
+
+        <p>
+            Digital Signal Processing | Academic Project
+        </p>
+    </footer>
+
+    <!-- LOAD MEDIAPIPE BEFORE YOUR JAVASCRIPT -->
+
+    <script
+        src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-audio@0.10.14/audio_bundle.js"
+        crossorigin="anonymous"
+    ></script>
+
+    <script src="script.js"></script>
 
 </body>
 </html>
-```
+
+
